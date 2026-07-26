@@ -1067,85 +1067,87 @@
             generatedDiv.scrollIntoView({ behavior: 'smooth' });
         }
 
-        // ===== 轻音乐播放器 =====
+        // ===== 钢琴曲播放器 =====
         let musicPlaying = false;
         let audioContext;
         let oscillators = [];
         let gains = [];
-        let lfoNodes = [];
 
         function toggleMusic() {
             const btn = document.getElementById('musicToggle');
             
             if (!musicPlaying) {
-                startLightMusic();
+                startPianoMusic();
                 btn.textContent = '🎵 音乐：开';
                 btn.classList.add('playing');
                 musicPlaying = true;
             } else {
-                stopLightMusic();
+                stopPianoMusic();
                 btn.textContent = '🎵 音乐：关';
                 btn.classList.remove('playing');
                 musicPlaying = false;
             }
         }
 
-        function startLightMusic() {
+        function startPianoMusic() {
             try {
                 audioContext = new (window.AudioContext || window.webkitAudioContext)();
                 
-                // 五声音阶（C大调五声音阶：C-D-E-G-A）
-                const pentatonic = [261.63, 293.66, 329.63, 392.00, 440.00];
+                // 钢琴和弦序列（C大调）
+                const chordProgression = [
+                    [261.63, 329.63, 392.00], // C major
+                    [293.66, 349.23, 440.00], // D minor
+                    [329.63, 392.00, 493.88], // E minor
+                    [349.23, 440.00, 523.25], // F major
+                    [392.00, 493.88, 587.33], // G major
+                    [349.23, 440.00, 523.25], // F major
+                    [329.63, 392.00, 493.88], // E minor
+                    [261.63, 329.63, 392.00]  // C major
+                ];
                 
-                // 创建柔和的背景音
-                pentatonic.forEach((freq, i) => {
-                    const osc = audioContext.createOscillator();
-                    const gain = audioContext.createGain();
-                    
-                    osc.type = 'sine';
-                    osc.frequency.setValueAtTime(freq, audioContext.currentTime);
-                    
-                    // 低音量，柔和
-                    gain.gain.setValueAtTime(0.08, audioContext.currentTime);
-                    
-                    // 添加颤音（模拟古筝）
-                    const lfo = audioContext.createOscillator();
-                    const lfoGain = audioContext.createGain();
-                    lfo.frequency.value = 3 + i * 0.5; // 不同频率的颤音
-                    lfoGain.gain.value = 1.5;
-                    lfo.connect(lfoGain);
-                    lfoGain.connect(osc.frequency);
-                    lfo.start();
-                    
-                    osc.connect(gain);
-                    gain.connect(audioContext.destination);
-                    osc.start();
-                    
-                    oscillators.push(osc);
-                    gains.push(gain);
-                    lfoNodes.push(lfo);
-                });
+                let noteIndex = 0;
                 
-                // 添加低音基础音
-                const bassOsc = audioContext.createOscillator();
-                const bassGain = audioContext.createGain();
-                bassOsc.type = 'sine';
-                bassOsc.frequency.setValueAtTime(130.81, audioContext.currentTime); // C3
-                bassGain.gain.setValueAtTime(0.05, audioContext.currentTime);
-                bassOsc.connect(bassGain);
-                bassGain.connect(audioContext.destination);
-                bassOsc.start();
+                function playChord(chord) {
+                    chord.forEach((freq, i) => {
+                        const osc = audioContext.createOscillator();
+                        const gain = audioContext.createGain();
+                        
+                        osc.type = 'sine';
+                        osc.frequency.setValueAtTime(freq, audioContext.currentTime);
+                        
+                        gain.gain.setValueAtTime(0, audioContext.currentTime);
+                        gain.gain.linearRampToValueAtTime(0.12, audioContext.currentTime + 0.01);
+                        gain.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 2.5);
+                        
+                        osc.connect(gain);
+                        gain.connect(audioContext.destination);
+                        osc.start();
+                        osc.stop(audioContext.currentTime + 2.5);
+                        
+                        oscillators.push(osc);
+                        gains.push(gain);
+                    });
+                }
                 
-                oscillators.push(bassOsc);
-                gains.push(bassGain);
+                function playSequence() {
+                    if (!musicPlaying) return;
+                    
+                    const chord = chordProgression[noteIndex % chordProgression.length];
+                    playChord(chord);
+                    noteIndex++;
+                    
+                    setTimeout(playSequence, 1800);
+                }
                 
-                console.log('🎵 轻音乐已播放');
+                playSequence();
+                
+                console.log('🎹 钢琴曲已播放');
             } catch (e) {
                 console.error('音频播放失败:', e);
             }
         }
 
-        function stopLightMusic() {
+        function stopPianoMusic() {
             oscillators.forEach(osc => {
                 try { osc.stop(); } catch(e) {}
                 try { osc.disconnect(); } catch(e) {}
@@ -1153,13 +1155,8 @@
             gains.forEach(gain => {
                 try { gain.disconnect(); } catch(e) {}
             });
-            lfoNodes.forEach(lfo => {
-                try { lfo.stop(); } catch(e) {}
-                try { lfo.disconnect(); } catch(e) {}
-            });
             oscillators = [];
             gains = [];
-            lfoNodes = [];
             
             if (audioContext) {
                 try { audioContext.close(); } catch(e) {}
