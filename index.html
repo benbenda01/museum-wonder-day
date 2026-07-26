@@ -1067,68 +1067,85 @@
             generatedDiv.scrollIntoView({ behavior: 'smooth' });
         }
 
-        // ===== 背景音乐 =====
+        // ===== 轻音乐播放器 =====
         let musicPlaying = false;
         let audioContext;
         let oscillators = [];
         let gains = [];
+        let lfoNodes = [];
 
         function toggleMusic() {
             const btn = document.getElementById('musicToggle');
             
             if (!musicPlaying) {
-                startMusic();
+                startLightMusic();
                 btn.textContent = '🎵 音乐：开';
                 btn.classList.add('playing');
                 musicPlaying = true;
             } else {
-                stopMusic();
+                stopLightMusic();
                 btn.textContent = '🎵 音乐：关';
                 btn.classList.remove('playing');
                 musicPlaying = false;
             }
         }
 
-        function startMusic() {
+        function startLightMusic() {
             try {
                 audioContext = new (window.AudioContext || window.webkitAudioContext)();
                 
-                // 创建和弦音（C大调和弦：C-E-G）
-                const notes = [261.63, 329.63, 392.00]; // C4, E4, G4
+                // 五声音阶（C大调五声音阶：C-D-E-G-A）
+                const pentatonic = [261.63, 293.66, 329.63, 392.00, 440.00];
                 
-                notes.forEach((freq, i) => {
+                // 创建柔和的背景音
+                pentatonic.forEach((freq, i) => {
                     const osc = audioContext.createOscillator();
                     const gain = audioContext.createGain();
                     
                     osc.type = 'sine';
                     osc.frequency.setValueAtTime(freq, audioContext.currentTime);
                     
-                    // 添加颤音效果
+                    // 低音量，柔和
+                    gain.gain.setValueAtTime(0.08, audioContext.currentTime);
+                    
+                    // 添加颤音（模拟古筝）
                     const lfo = audioContext.createOscillator();
                     const lfoGain = audioContext.createGain();
-                    lfo.frequency.value = 5;
-                    lfoGain.gain.value = 2;
+                    lfo.frequency.value = 3 + i * 0.5; // 不同频率的颤音
+                    lfoGain.gain.value = 1.5;
                     lfo.connect(lfoGain);
                     lfoGain.connect(osc.frequency);
                     lfo.start();
-                    
-                    gain.gain.setValueAtTime(0.3, audioContext.currentTime);
                     
                     osc.connect(gain);
                     gain.connect(audioContext.destination);
                     osc.start();
                     
-                    oscillators.push(osc, lfo);
+                    oscillators.push(osc);
                     gains.push(gain);
+                    lfoNodes.push(lfo);
                 });
                 
-                console.log('🎵 音乐已播放');
+                // 添加低音基础音
+                const bassOsc = audioContext.createOscillator();
+                const bassGain = audioContext.createGain();
+                bassOsc.type = 'sine';
+                bassOsc.frequency.setValueAtTime(130.81, audioContext.currentTime); // C3
+                bassGain.gain.setValueAtTime(0.05, audioContext.currentTime);
+                bassOsc.connect(bassGain);
+                bassGain.connect(audioContext.destination);
+                bassOsc.start();
+                
+                oscillators.push(bassOsc);
+                gains.push(bassGain);
+                
+                console.log('🎵 轻音乐已播放');
             } catch (e) {
                 console.error('音频播放失败:', e);
             }
         }
 
-        function stopMusic() {
+        function stopLightMusic() {
             oscillators.forEach(osc => {
                 try { osc.stop(); } catch(e) {}
                 try { osc.disconnect(); } catch(e) {}
@@ -1136,8 +1153,13 @@
             gains.forEach(gain => {
                 try { gain.disconnect(); } catch(e) {}
             });
+            lfoNodes.forEach(lfo => {
+                try { lfo.stop(); } catch(e) {}
+                try { lfo.disconnect(); } catch(e) {}
+            });
             oscillators = [];
             gains = [];
+            lfoNodes = [];
             
             if (audioContext) {
                 try { audioContext.close(); } catch(e) {}
